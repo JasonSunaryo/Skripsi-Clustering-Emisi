@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Search, ChevronUp, ChevronDown } from 'lucide-react';
 
-function ClusterDataTable({ clusterData, clusterStats, getColor }) {
+function ClusterDataTable({ clusterData, getColor }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'kabupaten', direction: 'asc' });
   const [currentPage, setCurrentPage] = useState(1);
@@ -77,9 +77,9 @@ function ClusterDataTable({ clusterData, clusterStats, getColor }) {
   if (!clusterData || Object.keys(clusterData).length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Tabel Data Klaster</h2>
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">Tabel Data Cluster</h2>
         <div className="text-center py-8 text-gray-500">
-          Tidak ada data klaster yang tersedia. Jalankan proses klasterisasi terlebih dahulu.
+          Tidak ada data cluster yang tersedia. Jalankan proses clustering terlebih dahulu.
         </div>
       </div>
     );
@@ -87,7 +87,7 @@ function ClusterDataTable({ clusterData, clusterStats, getColor }) {
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
-      <h2 className="text-lg font-semibold text-gray-800 mb-4">Tabel Data Klaster</h2>
+      <h2 className="text-lg font-semibold text-gray-800 mb-4">Tabel Data Cluster</h2>
 
       {/* Bilah Pencarian */}
       <div className="mb-4">
@@ -134,7 +134,7 @@ function ClusterDataTable({ clusterData, clusterStats, getColor }) {
                 onClick={() => handleSort('cluster')}
               >
                 <div className="flex items-center gap-2">
-                  Klaster
+                  Cluster
                   <SortIcon column="cluster" />
                 </div>
               </th>
@@ -175,7 +175,7 @@ function ClusterDataTable({ clusterData, clusterStats, getColor }) {
                       style={{ backgroundColor: getColor(item.cluster) }}
                     />
                     <span className="font-semibold text-gray-900">
-                      Klaster {item.cluster + 1}
+                    Cluster {item.cluster + 1}
                     </span>
                   </div>
                 </td>

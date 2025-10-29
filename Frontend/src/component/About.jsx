@@ -153,11 +153,7 @@ export default function About() {
               </li>
               <li className="flex items-start">
                 <span className="text-blue-600 mr-2">•</span>
-                <span>Atur jumlah cluster sesuai kebutuhan analisis (2-6 cluster)</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-blue-600 mr-2">•</span>
-                <span>Aktifkan penghapusan outlier untuk meningkatkan akurasi clustering</span>
+                <span>Atur jumlah cluster sesuai kebutuhan analisis (2-10 cluster)</span>
               </li>
               <li className="flex items-start">
                 <span className="text-blue-600 mr-2">•</span>

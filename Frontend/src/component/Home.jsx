@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import ClusteringEvaluation from "./Evaluation.jsx";
 import ClusterDataTable from "./ClusterDataTable";
-import GMMParameters from "./GMMParameters.jsx";
+import Probability from "./Probability.jsx";
 import "leaflet/dist/leaflet.css";
 
 const API_URL = "http://localhost:8000";
@@ -15,19 +15,22 @@ function Home() {
   const [clusterStats, setClusterStats] = useState([]);
   const [startYear, setStartYear] = useState("2015");
   const [endYear, setEndYear] = useState("2020");
-  const [sector, setSector] = useState("kehutanan");
+  const [sector, setSector] = useState("Energi");
   const [nClusters, setNClusters] = useState(3);
-  const [removeOutliers, setRemoveOutliers] = useState(true);
-  const [percentileThreshold, setPercentileThreshold] = useState(95);
   const [showTable, setShowTable] = useState(false);
   const [isClustering, setIsClustering] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [outliersData, setOutliersData] = useState([]);
+  const [extremeOutliers, setExtremeOutliers] = useState([]);
+  const [zscoreOutliers, setZscoreOutliers] = useState([]);
   const [silhouetteScore, setSilhouetteScore] = useState(null);
   const [silhouetteData, setSilhouetteData] = useState([]);
   const [scatterData, setScatterData] = useState([]);
   const [showOutliersList, setShowOutliersList] = useState(false);
   const [gmmParameters, setGmmParameters] = useState(null);
+  const [outlierMethod, setOutlierMethod] = useState(null);
+  const [zscoreThreshold, setZscoreThreshold] = useState(null);
+  const [clusteringResult, setClusteringResult] = useState(null);
 
   const sectorOptions = [
     { value: "all", label: "Semua Sektor" },
@@ -72,14 +75,12 @@ function Home() {
           end_year: parseInt(endYear),
           sector: sector,
           n_clusters: nClusters,
-          remove_outliers: removeOutliers,
-          percentile_threshold: percentileThreshold,
         }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.detail || "Clustering gagal");
+        throw new Error(error.detail || "Clustering failed");
       }
 
       const result = await response.json();
@@ -88,10 +89,15 @@ function Home() {
         setClusterData(result.data.kabupaten_clusters);
         setClusterStats(result.data.cluster_stats);
         setOutliersData(result.data.outliers || []);
+        setExtremeOutliers(result.data.extreme_outliers || []);
+        setZscoreOutliers(result.data.zscore_outliers || []);
         setSilhouetteScore(result.data.silhouette_score);
         setSilhouetteData(result.data.silhouette_data || []);
         setScatterData(result.data.scatter_data || []);
         setGmmParameters(result.data.gmm_parameters || null);
+        setOutlierMethod(result.data.outlier_method || "Z-score");
+        setZscoreThreshold(result.data.zscore_threshold || 3);
+        setClusteringResult(result.data); // Save complete clustering result
         setShowTable(true);
       }
     } catch (error) {
@@ -259,15 +265,7 @@ function Home() {
         });
 
         popupHTML += `</div></div>`;
-      } else if (sector !== "all") {
-        popupHTML += `
-          <div style="margin-top: 10px; padding: 10px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px;">
-            <div style="font-size: 12px; color: #e65100;">
-              ℹ️ Data sumber emisi tidak tersedia untuk wilayah ini
-            </div>
-          </div>
-        `;
-      }
+      } 
     } else {
       popupHTML += `
         <div style="padding: 10px; background: #ffebee; border-left: 4px solid #f44336; border-radius: 4px;">
@@ -290,7 +288,7 @@ function Home() {
       <div className="h-screen flex flex-col items-center justify-center bg-gray-100">
         <h2 className="text-xl font-semibold">Memuat Peta Indonesia...</h2>
         <p className="text-gray-500">
-          Mohon tunggu sementara data geografis dimuat
+          Mohon tunggu, sedang memuat data geografis
         </p>
       </div>
     );
@@ -370,7 +368,7 @@ function Home() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Jumlah Cluster
+                  Jumlah Cluster (2 - 7)
                 </label>
                 <input
                   type="number"
@@ -391,71 +389,55 @@ function Home() {
               </div>
             </div>
 
-            {/* Outlier Settings */}
+            {/* Outlier Info Box */}
             <div className="border-t pt-4 mt-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                Pengaturan Outlier
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="removeOutliers"
-                    checked={removeOutliers}
-                    onChange={(e) => setRemoveOutliers(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <label
-                    htmlFor="removeOutliers"
-                    className="ml-2 text-sm text-gray-700"
-                  >
-                    Hapus Outlier
-                  </label>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ambang Persentil
-                  </label>
-                  <input
-                    type="number"
-                    min="90"
-                    max="100"
-                    value={percentileThreshold}
-                    onChange={(e) =>
-                      setPercentileThreshold(parseInt(e.target.value))
-                    }
-                    disabled={!removeOutliers}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  />
-                </div>
-
-                <div className="flex items-center text-xs text-gray-500">
-                  <div>
-                    <p className="font-medium">Info:</p>
-                    <p>
-                      Data dengan nilai di atas persentil {percentileThreshold}%
-                      akan dihapus. Turunkan percentile jika ada emisi dengan
-                      nilai tidak wajar agar cluster terbentuk lebih baik.
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <svg
+                      className="w-5 h-5 text-blue-600"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-blue-900 mb-1">
+                      Penghapusan Outlier Otomatis
+                    </h3>
+                    <p className="text-xs text-blue-800 leading-relaxed">
+                      Sistem secara otomatis mendeteksi dan menghapus outlier menggunakan metode <strong>Z-score</strong>.
+                      Data dengan nilai emisi ekstrem (Z-score &gt; {zscoreThreshold || 3}) akan dihapus sebelum clustering 
+                      untuk menghasilkan pengelompokan yang lebih akurat.
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* Outliers List */}
-              {showTable && removeOutliers && outliersData.length > 0 && (
-                <div className="mt-4 border-t pt-4">
+              {showTable && outliersData.length > 0 && (
+                <div className="mt-4">
                   <button
                     onClick={() => setShowOutliersList(!showOutliersList)}
                     className="flex items-center justify-between w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-800">
-                        Outlier yang Dihapus
+                        Outlier Terdeteksi & Dihapus
                       </span>
                       <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded-full">
                         {outliersData.length}
                       </span>
+                      {outlierMethod && (
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                          {outlierMethod}
+                        </span>
+                      )}
                     </div>
                     {showOutliersList ? (
                       <ChevronUp className="w-5 h-5 text-gray-600" />
@@ -467,24 +449,21 @@ function Home() {
                   {showOutliersList && (
                     <div className="mt-3 bg-gray-50 rounded-lg p-4">
                       <p className="text-xs text-gray-600 mb-3">
-                        Kabupaten berikut dihapus karena nilai emisi rata-rata
-                        melebihi persentil {percentileThreshold}%
+                        Kabupaten berikut dihapus dari clustering karena memiliki nilai emisi yang ekstrem. 
+                        Total {outliersData.length} kabupaten ({extremeOutliers.length} extreme outliers + {zscoreOutliers.length} Z-score outliers).
                       </p>
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200 text-sm">
                           <thead className="bg-white">
                             <tr>
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                                No
-                              </th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                                Kabupaten
-                              </th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                                 Provinsi
                               </th>
                               <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                                Rata-rata Emisi (Gg)
+                                Avg Emission (Gg)
+                              </th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                Reason
                               </th>
                             </tr>
                           </thead>
@@ -502,6 +481,17 @@ function Home() {
                                 </td>
                                 <td className="px-3 py-2 whitespace-nowrap text-xs text-right text-red-600 font-semibold">
                                   {outlier.avg_emission.toFixed(2)}
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap text-xs">
+                                  {outlier.reason && outlier.reason.includes('Extreme') ? (
+                                    <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full font-medium">
+                                      {outlier.reason}
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full font-medium">
+                                      {outlier.reason || `Z-score (${outlier.z_score?.toFixed(2)})`}
+                                    </span>
+                                  )}
                                 </td>
                               </tr>
                             ))}
@@ -564,7 +554,7 @@ function Home() {
                         Persentase: {stat.percentage.toFixed(1)}%
                       </p>
                       <p className="text-sm text-gray-600">
-                        Rata-rata Keyakinan: {(stat.avg_confidence * 100).toFixed(1)}
+                        Rata-rata Probabilitas: {(stat.avg_confidence * 100).toFixed(1)}
                         %
                       </p>
                       <p className="text-sm font-semibold text-gray-800">
@@ -584,8 +574,8 @@ function Home() {
               </h2>
               {sector !== "all" && (
                 <p className="text-xs text-gray-500 mt-1">
-                  💡 Klik wilayah pada peta untuk melihat detail sumber emisi
-                  sektor {sector.toUpperCase()}
+                  💡 Klik wilayah pada peta untuk melihat  sumber emisi
+                  sektor {sector.toUpperCase()}detail
                 </p>
               )}
             </div>
@@ -653,20 +643,23 @@ function Home() {
 
           {/* GMM Parameters */}
           {showTable && gmmParameters && (
-            <GMMParameters
+            <Probability
               gmmParameters={gmmParameters}
               getColor={getColor}
               clusterData={clusterData}
             />
           )}
 
-          {/* Clustering Evaluation */}
-          {showTable && scatterData.length > 0 && (
+          {/* Clustering Evaluation with Box Plot */}
+          {showTable && scatterData.length > 0 && clusteringResult && (
             <ClusteringEvaluation
               scatterData={scatterData}
               silhouetteScore={silhouetteScore}
               silhouetteData={silhouetteData}
               getColor={getColor}
+              clusteringResult={clusteringResult}
+              startYear={parseInt(startYear)}
+              endYear={parseInt(endYear)}
             />
           )}
         </div>
@@ -676,3 +669,4 @@ function Home() {
 }
 
 export default Home;
+          

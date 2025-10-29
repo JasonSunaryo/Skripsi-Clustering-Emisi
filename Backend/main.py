@@ -26,8 +26,8 @@ class ClusteringRequest(BaseModel):
     end_year: int
     sector: str
     n_clusters: int = 3
-    remove_outliers: bool = True
-    percentile_threshold: int = 98
+    zscore_threshold: float = 3.0  # default ambang Z-score
+
 
 class ClusteringResponse(BaseModel):
     success: bool
@@ -65,16 +65,14 @@ async def run_clustering(request: ClusteringRequest):
         if request.n_clusters < 2:
             raise HTTPException(status_code=400, detail="Jumlah cluster harus minimal 2")
         
-        if request.n_clusters > 20:
-            raise HTTPException(status_code=400, detail="Jumlah cluster maksimal 20")
+        if request.n_clusters > 7:
+            raise HTTPException(status_code=400, detail="Jumlah cluster maksimal 10")
         
         result = clustering_service.perform_clustering(
             start_year=request.start_year,
             end_year=request.end_year,
             sector=request.sector,
             n_clusters=request.n_clusters,
-            remove_outliers=request.remove_outliers,
-            percentile_threshold=request.percentile_threshold
         )
         
         return ClusteringResponse(

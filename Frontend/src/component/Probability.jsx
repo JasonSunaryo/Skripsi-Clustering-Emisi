@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Info, Search, X, MapPin } from 'lucide-react';
+import { Search, X, MapPin } from 'lucide-react';
 
-function GMMParameters({ gmmParameters, getColor, clusterData }) {
-  const [expandedCluster, setExpandedCluster] = useState(null);
+function Probability({ gmmParameters, getColor, clusterData }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedKabupaten, setSelectedKabupaten] = useState(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -10,15 +9,6 @@ function GMMParameters({ gmmParameters, getColor, clusterData }) {
   if (!gmmParameters) {
     return null;
   }
-
-  const {
-    weights,
-    means,
-    feature_names,
-    log_likelihood,
-    n_iterations,
-    converged,
-  } = gmmParameters;
 
   const allKabupaten = clusterData ? Object.keys(clusterData).sort() : [];
   const filteredKabupaten = allKabupaten.filter(kab =>
@@ -41,37 +31,21 @@ function GMMParameters({ gmmParameters, getColor, clusterData }) {
     setShowSuggestions(false);
   };
 
-  const toggleCluster = (clusterIdx) => {
-    setExpandedCluster(expandedCluster === clusterIdx ? null : clusterIdx);
-  };
-
-  const formatNumber = (num) => {
-    if (Math.abs(num) >= 1000000) {
-      return (num / 1000000).toFixed(2) + ' juta';
-    } else if (Math.abs(num) >= 1000) {
-      return (num / 1000).toFixed(2) + ' ribu';
-    }
-    return num.toFixed(4);
-  };
-
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-800">
-          Gaussian Mixture Model Parameters
-        </h2>
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          <Info className="w-4 h-4" />
-          <span>Parameter model yang digunakan dalam clustering</span>
-        </div>
-      </div>
+      <h2 className="text-lg font-semibold text-gray-800 mb-2">
+        Soft Clustering - Probabilitas Keanggotaan GMM
+      </h2>
+      <p className="text-sm text-gray-600 mb-4">
+        Setiap kabupaten memiliki probabilitas keanggotaan ke semua cluster. Kabupaten ditempatkan di cluster dengan probabilitas tertinggi.
+      </p>
 
       {/* Kabupaten Search Section */}
       {clusterData && (
-        <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-5">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-5">
           <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
             <Search className="w-4 h-4" />
-            Cari Kabupaten untuk Melihat Detail Clustering
+            Cari Kabupaten untuk Melihat Soft Clustering
           </h3>
 
           <div className="relative">
@@ -128,7 +102,7 @@ function GMMParameters({ gmmParameters, getColor, clusterData }) {
                   <p className="text-xs text-gray-600">{selectedKabupaten.provinsi}</p>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-gray-600">Assigned to</div>
+                  <div className="text-xs text-gray-600">Ditempatkan di</div>
                   <div
                     className="inline-flex items-center gap-2 px-3 py-1 rounded-full font-semibold text-sm"
                     style={{ 
@@ -178,7 +152,7 @@ function GMMParameters({ gmmParameters, getColor, clusterData }) {
                             </span>
                             {isAssigned && (
                               <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">
-                                ✓ Assigned
+                                ✓ Terpilih
                               </span>
                             )}
                           </div>
@@ -208,88 +182,8 @@ function GMMParameters({ gmmParameters, getColor, clusterData }) {
           )}
         </div>
       )}
-
-      {/* Model Convergence Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="text-xs text-blue-600 font-medium mb-1">Log-Likelihood</div>
-          <div className="text-xl font-bold text-blue-900">{log_likelihood.toFixed(2)}</div>
-          <div className="text-xs text-blue-600 mt-1">Semakin tinggi semakin baik</div>
-        </div>
-        
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="text-xs text-green-600 font-medium mb-1">Iterasi</div>
-          <div className="text-xl font-bold text-green-900">{n_iterations}</div>
-          <div className="text-xs text-green-600 mt-1">
-            {converged ? '✓ Konvergen' : '⚠ Tidak Konvergen'}
-          </div>
-        </div>
-      </div>
-
-      {/* Cluster Parameters */}
-      <div className="space-y-4">
-        {weights.map((weight, clusterIdx) => {
-          const isExpanded = expandedCluster === clusterIdx;
-          const clusterColor = getColor(clusterIdx);
-
-          return (
-            <div
-              key={clusterIdx}
-              className="border rounded-lg overflow-hidden"
-              style={{ borderColor: clusterColor }}
-            >
-              <button
-                onClick={() => toggleCluster(clusterIdx)}
-                className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: clusterColor }}
-                  />
-                  <span className="font-semibold text-gray-800">
-                    Cluster {clusterIdx + 1}
-                  </span>
-                  <span className="px-2 py-1 bg-white border rounded text-xs font-medium text-gray-600">
-                    Bobot: {(weight * 100).toFixed(2)}%
-                  </span>
-                </div>
-                {isExpanded ? (
-                  <ChevronUp className="w-5 h-5 text-gray-600" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-600" />
-                )}
-              </button>
-
-              {isExpanded && (
-                <div className="p-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">μ</span>
-                    Mean Values (Emisi Rata-rata per Tahun)
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                    {means[clusterIdx].map((mean, yearIdx) => (
-                      <div
-                        key={yearIdx}
-                        className="bg-blue-50 border border-blue-200 rounded p-2"
-                      >
-                        <div className="text-xs font-medium text-blue-600">
-                          {feature_names[yearIdx]}
-                        </div>
-                        <div className="text-sm font-bold text-blue-900">
-                          {mean.toFixed(2)} Gg
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
 
-export default GMMParameters;
+export default Probability;

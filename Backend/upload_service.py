@@ -152,31 +152,65 @@ class UploadService:
             print(f"❌ Error in process_uploaded_file: {str(e)}")
             return False, f"Error processing file: {str(e)}"
 
+    def _cleanup_temp_file(self, file_path: str):
+        """Safely remove temporary file"""
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"🗑️ Temporary file removed: {file_path}")
+        except Exception as e:
+            print(f"⚠️ Warning: Could not remove temp file {file_path}: {str(e)}")
+
     async def upload_and_process(self, file: UploadFile):
         """Upload and process emission dataset (no backup or uploads folder)"""
+        temp_file_path = None
+        
         try:
             print(f"📥 Receiving file: {file.filename}")
 
+            # Validate file extension first (before saving)
             if not file.filename.endswith(('.xlsx', '.xls')):
-                raise HTTPException(status_code=400, detail="File harus berformat Excel (.xlsx atau .xls)")
+                raise HTTPException(
+                    status_code=400, 
+                    detail="File harus berformat Excel (.xlsx atau .xls)"
+                )
 
-            # Save temporarily in same directory (no uploads folder)
-            temp_file_path = os.path.join(self.EXCEL_DIR, f"temp_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}")
-            with open(temp_file_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
+            # Create temporary file path
+            temp_file_path = os.path.join(
+                self.EXCEL_DIR, 
+                f"temp_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+            )
 
-            # Validate structure
+            # Save uploaded file temporarily
+            try:
+                with open(temp_file_path, "wb") as buffer:
+                    shutil.copyfileobj(file.file, buffer)
+                print(f"💾 Temporary file saved: {temp_file_path}")
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Error menyimpan file sementara: {str(e)}"
+                )
+
+            # Validate file structure
             print(f"🔍 Validating file structure...")
             is_valid, error_message = self.validate_file_structure(temp_file_path)
+            
             if not is_valid:
-                os.remove(temp_file_path)
-                raise HTTPException(status_code=400, detail=f"File tidak sesuai template: {error_message}")
+                # Clean up immediately if validation fails
+                self._cleanup_temp_file(temp_file_path)
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"File tidak sesuai template: {error_message}"
+                )
 
             # Process file
             print(f"⚙️ Processing file...")
             success, message = self.process_uploaded_file(temp_file_path)
-            os.remove(temp_file_path)
-
+            
+            # Always cleanup temp file after processing (success or fail)
+            self._cleanup_temp_file(temp_file_path)
+            
             if not success:
                 raise HTTPException(status_code=500, detail=message)
 
@@ -195,5 +229,16 @@ class UploadService:
                 }
             )
 
+        except HTTPException:
+            # Re-raise HTTPException as is
+            raise
+            
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
+            # Cleanup on unexpected errors
+            if temp_file_path:
+                self._cleanup_temp_file(temp_file_path)
+            
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Error uploading file: {str(e)}"
+            )
